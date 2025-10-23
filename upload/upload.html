@@ -851,7 +851,7 @@ function renderSectionWithPreviews(section) {
     const files = Object.keys(marcadorDraft.paginas[section] || {});
     files.forEach(fileName => {
         const pages = computePagesForFile(section, fileName);
-        const fileUrl = `/pdfs/${fileName}`; // adjust according to your storage
+        const fileUrl = `/projetoextensaofsg2/pdfs/${fileName}`; // adjust according to your storage
         renderPdfThumbnails(fileUrl, previewContainer, pages);
     });
 }
@@ -957,4 +957,3 @@ refreshBtn.onclick = async () => {
 
 </body>
 </html>
-
