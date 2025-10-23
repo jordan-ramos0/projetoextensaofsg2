@@ -921,24 +921,29 @@ async function renderPreviewFromSolved(container, solvedPages) {
 
 /* ------------------- FUNÇÃO DE RENDER DA SEÇÃO ------------------- */
 async function renderSectionWithSolverPreview(section){
-    renderSection(section); // render da lista de arquivos e regras
+    renderSection(section); // render the list of files and rules
 
-    const previewContainer = section==='mobile' ? document.getElementById('mobilePreviewContainer')
-                                                : document.getElementById('desktopPreviewContainer');
+    const previewContainer = section==='mobile' 
+        ? document.getElementById('mobilePreviewContainer')
+        : document.getElementById('desktopPreviewContainer');
 
-    // carrega tamanho de PDFs
-    const sectionRules = marcadorDraft.paginas[section] || {};
+    // load actual PDF page counts
+    const sectionFiles = marcadorDraft.paginas[section] || [];
     const pdfLengths = {};
-    for(const fileName of Object.keys(sectionRules)){
+
+    for(const fileObj of sectionFiles){
+        const fileName = fileObj.fileName;
         const fileUrl = `/projetoextensaofsg2/pdfs/${fileName}`;
         const pdf = await pdfjsLib.getDocument(fileUrl).promise;
         pdfLengths[fileName] = pdf.numPages;
         pdf.destroy();
     }
 
-    const solvedPages = solveRules(sectionRules, pdfLengths);
+    const solvedPages = solveRules(sectionFiles, pdfLengths);
     await renderPreviewFromSolved(previewContainer, solvedPages);
 }
+
+
 
 //0000000000000
 
