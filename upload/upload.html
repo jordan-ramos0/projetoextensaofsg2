@@ -477,8 +477,8 @@ async function atualizarEscolhasArquivosMarcador(){
 const marcadorDraft = {
   nome: '', // será atualizado do input marcadorNome quando salvar
   paginas: {
-    mobile: {}, // "fileName.pdf": [ regraObj, ... ]
-    desktop: {}
+    mobile: [], // "fileName.pdf": [ regraObj, ... ]
+    desktop: []
   }
 };
 
@@ -508,50 +508,89 @@ let composerState = null; // { section: 'mobile'|'desktop', arquivo: 'file.pdf',
 function renderSection(section) {
   const container = section === 'mobile' ? mobileFilesContainer : desktopFilesContainer;
   container.innerHTML = '';
-  const files = Object.keys(marcadorDraft.paginas[section] || {});
-  if(files.length === 0) {
+  const filesArr = marcadorDraft.paginas[section] || [];
+
+  if (filesArr.length === 0) {
     container.innerHTML = '<div style="color:#666;font-size:13px">Nenhum arquivo adicionado nesta seção.</div>';
     return;
   }
-  files.forEach(fileName => {
-    const regras = marcadorDraft.paginas[section][fileName] || [];
+
+  filesArr.forEach((fileObj, fileIdx) => {
+    const { fileName, rules } = fileObj;
     const card = document.createElement('div');
     card.className = 'arquivoCard';
-    card.style = 'border:1px solid #eee;padding:8px;border-radius:6px;margin-bottom:8px;background:#fbfdff';
+    card.style = `
+      border:1px solid #eee;
+      padding:8px;
+      border-radius:6px;
+      margin-bottom:8px;
+      background:#fbfdff;
+      position:relative;
+    `;
+
     card.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;">
+      
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-left:35px;">
+        <!-- small move buttons top-left -->
         <strong>${fileName}</strong>
-        <div>
-          <button type="button" data-action="addRule">+ Regra</button>
-          <button type="button" data-action="removeArquivo">Remover Arquivo</button>
+        <div style="display:flex;gap:6px;">
+          <div style="display:flex;gap:2px; margin:1px">
+        <button data-action="moveFileUp" title="Subir" style="font-size:11px;">↑</button>
+        <button data-action="moveFileDown" title="Descer" style="font-size:11px;">↓</button>
+      </div>
+
+          <button data-action="addRule">+ Regra</button>
+          <button data-action="removeArquivo">Remover Arquivo</button>
+        
         </div>
       </div>
+
       <ul class="regrasLista" style="margin-top:8px;list-style:none;padding-left:0;"></ul>
     `;
+
+    // Render each rule line
     const ul = card.querySelector('.regrasLista');
-    regras.forEach((r, idx) => {
+    rules.forEach((r, rIdx) => {
       const li = document.createElement('li');
       li.style = 'padding:6px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;';
-      li.innerHTML = `<div style="font-size:13px;color:#222">${renderRuleText(r)}</div>
-                      <div style="display:flex;gap:6px">
-                        <button data-action="moveUp" title="Subir">↑</button>
-                        <button data-action="moveDown" title="Descer">↓</button>
-                        <button data-action="edit" title="Editar">✎</button>
-                        <button data-action="delete" title="Remover">✖</button>
-                      </div>`;
-      // attach handlers
-      li.querySelector('[data-action="moveUp"]').onclick = ()=> { swapRule(section,fileName,idx,idx-1); };
-      li.querySelector('[data-action="moveDown"]').onclick = ()=> { swapRule(section,fileName,idx,idx+1); };
-      li.querySelector('[data-action="edit"]').onclick = ()=> { openComposer(section,fileName, idx); };
-      li.querySelector('[data-action="delete"]').onclick = ()=> { marcadorDraft.paginas[section][fileName].splice(idx,1); renderSection(section); };
+      li.innerHTML = `
+        <div style="font-size:13px;color:#222">${renderRuleText(r)}</div>
+        <div style="display:flex;gap:6px;">
+          <button data-action="moveUp" title="Subir">↑</button>
+          <button data-action="moveDown" title="Descer">↓</button>
+          <button data-action="edit" title="Editar">✎</button>
+          <button data-action="delete" title="Remover">✖</button>
+        </div>
+      `;
+      li.querySelector('[data-action="moveUp"]').onclick = () => swapRule(section, fileIdx, rIdx, rIdx - 1);
+      li.querySelector('[data-action="moveDown"]').onclick = () => swapRule(section, fileIdx, rIdx, rIdx + 1);
+      li.querySelector('[data-action="edit"]').onclick = () => openComposer(section, fileIdx, rIdx);
+      li.querySelector('[data-action="delete"]').onclick = () => { rules.splice(rIdx, 1); renderSection(section); };
       ul.appendChild(li);
     });
-    // attach add rule / remove arquivo
-    card.querySelector('[data-action="addRule"]').onclick = ()=> openComposer(section, fileName, null);
-    card.querySelector('[data-action="removeArquivo"]').onclick = ()=> { delete marcadorDraft.paginas[section][fileName]; renderSection(section); };
+
+    // Button actions
+    card.querySelector('[data-action="addRule"]').onclick = () => openComposer(section, fileIdx, null);
+    card.querySelector('[data-action="removeArquivo"]').onclick = () => {
+      filesArr.splice(fileIdx, 1);
+      renderSection(section);
+    };
+    card.querySelector('[data-action="moveFileUp"]').onclick = () => {
+      if (fileIdx === 0) return;
+      [filesArr[fileIdx - 1], filesArr[fileIdx]] = [filesArr[fileIdx], filesArr[fileIdx - 1]];
+      renderSection(section);
+    };
+    card.querySelector('[data-action="moveFileDown"]').onclick = () => {
+      if (fileIdx === filesArr.length - 1) return;
+      [filesArr[fileIdx + 1], filesArr[fileIdx]] = [filesArr[fileIdx], filesArr[fileIdx + 1]];
+      renderSection(section);
+    };
+
     container.appendChild(card);
   });
 }
+
 
 /* Render textual de uma regra (para lista) */
 function renderRuleText(rule) {
@@ -571,18 +610,25 @@ function renderRuleText(rule) {
 }
 
 /* Troca de posição de regra */
-function swapRule(section,fileName,i,j){
-  const arr = marcadorDraft.paginas[section][fileName];
-  if(!arr || i<0 || j<0 || i>=arr.length || j>=arr.length) return;
-  const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+function swapRule(section, fileIdx, i, j){
+  const filesArr = marcadorDraft.paginas[section];
+  if(!filesArr || !filesArr[fileIdx]) return;
+  const rules = filesArr[fileIdx].rules;
+  if(!rules || i<0 || j<0 || i>=rules.length || j>=rules.length) return;
+  [rules[i], rules[j]] = [rules[j], rules[i]];
   renderSection(section);
 }
 
+
 /* Abrir composer para criar/editar regra */
-function openComposer(section, fileName, editingIndex=null){
-  composerState = { section, arquivo: fileName, editingIndex };
+function openComposer(section, fileIdx, editingIndex=null){
+  const fileObj = marcadorDraft.paginas[section][fileIdx];
+  const fileName = fileObj.fileName;
+  const rules = fileObj.rules;
+
+  composerState = { section, fileIdx, editingIndex };
   composerTitle.textContent = editingIndex===null ? `Nova regra — ${fileName} (${section})` : `Editar regra — ${fileName} (${section})`;
-  composerBody.innerHTML = ''; // limpar
+  composerBody.innerHTML = '';
 
   // Base chooser
   const baseWrap = document.createElement('div');
@@ -593,7 +639,6 @@ function openComposer(section, fileName, editingIndex=null){
   `;
   composerBody.appendChild(baseWrap);
 
-  // containers for inputs
   const intervaloDiv = document.createElement('div'); intervaloDiv.className='hidden'; intervaloDiv.style='margin-top:8px;';
   intervaloDiv.innerHTML = `De <input id="c_inicio" style="width:80px;margin-left:6px;margin-right:6px"> Até <input id="c_fim" style="width:80px;margin-left:6px">`;
   composerBody.appendChild(intervaloDiv);
@@ -602,7 +647,6 @@ function openComposer(section, fileName, editingIndex=null){
   especificasDiv.innerHTML = `Páginas (vírgula): <input id="c_paginas" style="width:200px;margin-left:6px">`;
   composerBody.appendChild(especificasDiv);
 
-  // exceto list
   const excetoListDiv = document.createElement('div'); excetoListDiv.style='margin-top:10px;border-top:1px dashed #eee;padding-top:8px;';
   excetoListDiv.innerHTML = `<div style="font-size:13px;color:#666">Exceto (opcional). Adicione um item de exclusão:</div>
     <div style="margin-top:6px;">
@@ -617,21 +661,11 @@ function openComposer(section, fileName, editingIndex=null){
   `;
   composerBody.appendChild(excetoListDiv);
 
-  // local state for excetos in composer
   const composerExcetos = [];
-
-  // handlers base choice
-  baseWrap.querySelectorAll('input[name="baseChoice"]').forEach(radio=>{
-    radio.onchange = ()=>{
-      intervaloDiv.classList.toggle('hidden', radio.value !== 'intervalo');
-      especificasDiv.classList.toggle('hidden', radio.value !== 'especificas');
-    };
-  });
-
-  // exceto inputs dynamic
   const excetoTipoSel = excetoListDiv.querySelector('#excetoTipo');
   const excetoInputsSpan = excetoListDiv.querySelector('#excetoInputs');
   const excetoListUl = excetoListDiv.querySelector('#excetoList');
+
   function renderExcetoList(){
     excetoListUl.innerHTML = '';
     composerExcetos.forEach((e,i)=>{
@@ -642,6 +676,7 @@ function openComposer(section, fileName, editingIndex=null){
       excetoListUl.appendChild(li);
     });
   }
+
   function updateExcetoInputs(){
     excetoInputsSpan.innerHTML = '';
     if(excetoTipoSel.value === 'intervalo'){
@@ -655,8 +690,8 @@ function openComposer(section, fileName, editingIndex=null){
 
   excetoListDiv.querySelector('#excetoAddBtn').onclick = ()=>{
     if(excetoTipoSel.value === 'intervalo'){
-      const s = document.getElementById('ex_inicio').value, e = document.getElementById('ex_fim').value;
-      const si = sanitizeInt(s), ei = sanitizeInt(e);
+      const si = sanitizeInt(document.getElementById('ex_inicio').value);
+      const ei = sanitizeInt(document.getElementById('ex_fim').value);
       if(si===null||ei===null||si>ei){ alert('Intervalo inválido'); return; }
       composerExcetos.push({ tipo:'intervalo', inicio:si, fim:ei });
     } else {
@@ -668,36 +703,23 @@ function openComposer(section, fileName, editingIndex=null){
     renderExcetoList();
   };
 
-  // se estamos editando, prepopulate
   if(editingIndex !== null){
-    const existing = marcadorDraft.paginas[section][fileName][editingIndex];
+    const existing = rules[editingIndex];
     if(existing){
-      // base
       const baseRadio = composerBody.querySelector(`input[name="baseChoice"][value="${existing.base}"]`);
       if(baseRadio) baseRadio.checked = true, baseRadio.onchange && baseRadio.onchange();
       if(existing.base === 'intervalo'){ document.getElementById('c_inicio').value = existing.inicio; document.getElementById('c_fim').value = existing.fim; }
       if(existing.base === 'especificas'){ document.getElementById('c_paginas').value = existing.paginas.join(','); }
-      // excetos
-      if(Array.isArray(existing.excetos)){
-        existing.excetos.forEach(exc => {
-          if(exc.tipo === 'intervalo') composerExcetos.push({ tipo:'intervalo', inicio:exc.inicio, fim:exc.fim });
-          else if(exc.tipo === 'especificas') composerExcetos.push({ tipo:'especificas', paginas: exc.paginas.slice() });
-        });
-        renderExcetoList();
-      }
+      if(Array.isArray(existing.excetos)) existing.excetos.forEach(exc=>composerExcetos.push({...exc, paginas: exc.paginas?.slice()}));
+      renderExcetoList();
     }
   }
 
-  // show composer
   ruleComposerContainer.classList.remove('hidden');
-
-  // close handlers
   closeComposerBtn.onclick = closeComposer;
   composerCancelBtn.onclick = closeComposer;
 
-  // save
   composerSaveBtn.onclick = ()=>{
-    // read base
     const base = composerBody.querySelector('input[name="baseChoice"]:checked');
     if(!base){ alert('Escolha uma base (Todas, Intervalo ou Específicas)'); return; }
     const baseVal = base.value;
@@ -712,20 +734,9 @@ function openComposer(section, fileName, editingIndex=null){
       if(!pages.length){ alert('Específicas inválidas'); return; }
       newRule.paginas = uniqueArray(pages);
     }
-    // attach excetos if any
-    if(composerExcetos.length) newRule.excetos = composerExcetos.map(e=>{
-      if(e.tipo === 'intervalo') return { tipo:'intervalo', inicio:e.inicio, fim:e.fim };
-      return { tipo:'especificas', paginas: uniqueArray(e.paginas) };
-    });
-
-    // store into marcadorDraft
-    if(!marcadorDraft.paginas[section]) marcadorDraft.paginas[section] = {};
-    if(!marcadorDraft.paginas[section][fileName]) marcadorDraft.paginas[section][fileName] = [];
-    if(editingIndex === null){
-      marcadorDraft.paginas[section][fileName].push(newRule);
-    } else {
-      marcadorDraft.paginas[section][fileName][editingIndex] = newRule;
-    }
+    if(composerExcetos.length) newRule.excetos = composerExcetos.map(e=>({ ...e, paginas: uniqueArray(e.paginas||[]) }));
+    if(editingIndex === null) rules.push(newRule);
+    else rules[editingIndex] = newRule;
     closeComposer();
     renderSection(section);
   };
@@ -739,39 +750,60 @@ function closeComposer(){
 }
 
 /* Adicionar arquivo à seção (chama Choices selector inline) */
-function promptAddArquivoToSection(section){
-  // create a lightweight prompt overlay with a select using Choices
+function promptAddArquivoToSection(section) {
   const overlay = document.createElement('div');
-  overlay.style = 'position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;z-index:1200';
+  overlay.style = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
   overlay.innerHTML = `
-    <div style="background:#fff;padding:12px;border-radius:8px;border:1px solid #ddd;min-width:320px;">
-      <div style="display:flex;justify-content:space-between;align-items:center"><strong>Adicionar arquivo — ${section}</strong><button id="cClose">✖</button></div>
-      <div style="margin-top:8px">
-        <select id="filePicker"></select>
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+    <div style="background:white;padding:20px;border-radius:6px;width:300px;">
+      <div style="margin-bottom:12px;font-weight:bold">Adicionar Arquivos (${section})</div>
+      <select id="addArquivoSelect" multiple style="width:100%;height:100px"></select>
+      <div style="margin-top:12px;text-align:right;">
         <button id="cCancel">Cancelar</button>
         <button id="cOk">Adicionar</button>
       </div>
     </div>
   `;
   document.body.appendChild(overlay);
-  const filePicker = overlay.querySelector('#filePicker');
-  // populate options from global arquivos
-  arquivos.forEach(a=>{ const opt = document.createElement('option'); opt.value = a.name; opt.text = a.name; filePicker.appendChild(opt); });
-  const choices = new Choices(filePicker, { searchEnabled:true, shouldSort:false, removeItemButton:false, maxItemCount:1 });
-  overlay.querySelector('#cClose').onclick = ()=> overlay.remove();
-  overlay.querySelector('#cCancel').onclick = ()=> overlay.remove();
-  overlay.querySelector('#cOk').onclick = ()=>{
-    const val = choices.getValue(true);
-    if(!val){ alert('Selecione um arquivo'); return; }
-    // create empty rules array for this file in section
-    if(!marcadorDraft.paginas[section]) marcadorDraft.paginas[section] = {};
-    if(!marcadorDraft.paginas[section][val]) marcadorDraft.paginas[section][val] = [];
+
+  const select = overlay.querySelector('#addArquivoSelect');
+
+  // Populate select with current arquivos
+  arquivos.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.name;
+    opt.textContent = f.name;
+    select.appendChild(opt);
+  });
+
+  // Initialize Choices.js on the select
+  const choicesInstance = new Choices(select, {
+    removeItemButton: true,
+    shouldSort: false
+  });
+
+  overlay.querySelector('#cCancel').onclick = () => {
+    choicesInstance.destroy(); // cleanup Choices instance
     overlay.remove();
+  };
+
+  overlay.querySelector('#cOk').onclick = () => {
+    const selectedFiles = choicesInstance.getValue(true); // get selected values
+    if (!selectedFiles.length) { alert('Selecione pelo menos um arquivo'); return; }
+    
+    if (!Array.isArray(marcadorDraft.paginas[section])) {
+      marcadorDraft.paginas[section] = [];
+    }
+
+    selectedFiles.forEach(f => marcadorDraft.paginas[section].push({ fileName: f, rules: [] }));
+
     renderSection(section);
+
+    choicesInstance.destroy();
+    overlay.remove();
   };
 }
+
+
 
 /* inicialização dos botões */
 addArquivoMobileBtn.onclick = ()=> promptAddArquivoToSection('mobile');
