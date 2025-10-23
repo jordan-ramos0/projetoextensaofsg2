@@ -129,7 +129,10 @@ table button {
             Nome do Marcador:
             <input type="text" id="marcadorNome" placeholder="Ex: Tópico 1">
           </label>
-          
+          <label for="marcadorCor">Cor do marcador:</label>
+          <input type="color" id="marcadorCor" name="marcadorCor" value="#ff0000" 
+          style="margin-left:6px; width:30px; height:30px; padding:0; border:1px solid #ccc; border-radius:4px; cursor:pointer;">
+   
         
             
           
@@ -147,6 +150,8 @@ table button {
 
           <h4>Páginas Desktop</h4>
           <div id="desktopSection" class="card" style="padding:12px;margin-bottom:12px;">
+            <h4>Páginas Desktop — Preview</h4>
+            <div id="desktopPreviewContainer" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
               <button id="addArquivoDesktopBtn" type="button">+ Adicionar Arquivo</button>
               <small style="color:#666">Adicione arquivo e crie regras (Todas / Intervalo / Específicas + Exceto).</small>
@@ -186,9 +191,7 @@ table button {
           <>Arquivos(s):</> file1.pdf 
           <>Páginas:</> Todas dos pdf(s); de página X à Y; página X; exceto pagina Y;
           Color picker <input type="color" value="#2563eb" style="width:100%; height:100%;">
-          <>Valor-Peso:</>
-          <p>Valor numérico para determinar a posição do marcador na ordem já existente. Valores menores ficam acima na ordem. Números decimais e números negativos são aceitos. </p>
-          2.5 (mostra uma previsão baseado no valor, caso exista para dizer: "Ficaria entre antes de (marcador)" "Ficaria entre antes de (marcador) e depois de (marcador3)" ou "Ficaria depois de marcador4")
+
         <button>Adicionar nova entrada</button> (mostra o formulário ao clicar. transforma-se em botão Salvar, cria botão Descartar alteraçoes ao lado.)
         <tabela de marcadores (não necessariamente uma tabela, porque tem que funcionar tanto no celular quanto pc e não quero overflow que tem que arrastar horizontal como uma tabela teria com colunas demais.)>
           opção de editar marcador existente (aí abre o formulário)
@@ -432,6 +435,9 @@ tokenInput.addEventListener('focus', async()=>{
 
 
 //0000000000000
+const savedMarkers = []; // marcadores salvos em memória
+const markersListContainer = document.getElementById('marcadoresContainer'); // <div> para lista de marcadores
+
 let choicesArquivos = null
 async function atualizarEscolhasArquivosMarcador(){
 
@@ -837,12 +843,13 @@ window.renderAllSections = function(){
 };
 
 /* Opção: vincular salvar do formulário para capturar nome e gerar JSON final */
-document.getElementById('marcadorForm').addEventListener('submit', (e)=>{
-  e.preventDefault();
-  marcadorDraft.nome = document.getElementById('marcadorNome').value.trim() || 'Marcador sem nome';
-  // aqui você pode serializar marcadorDraft e enviar para o backend/GitHub
-  console.log('Marcador salvo (draft):', JSON.stringify(marcadorDraft, null, 2));
-  alert('Marcador (draft) pronto. Veja console.');
+document.getElementById('marcadorForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    
+    marcadorDraft.nome = document.getElementById('marcadorNome').value.trim() || 'Marcador sem nome';
+    marcadorDraft.cor = document.getElementById('marcadorCor').value;
+    
+    addDraftToSavedMarkers();
 });
 
 
@@ -971,6 +978,122 @@ async function renderPreviewFromSolved(container, solvedPages) {
         pdf.destroy();
     }
 }
+
+async function renderSectionWithSolverPreview(section){
+    renderSection(section); // render the list of files and rules
+
+    const previewContainer = section==='mobile' 
+        ? document.getElementById('mobilePreviewContainer')
+        : document.getElementById('desktopPreviewContainer');
+
+    // load actual PDF page counts
+    const sectionFiles = marcadorDraft.paginas[section] || [];
+    const pdfLengths = {};
+
+    for(const fileObj of sectionFiles){
+        const fileName = fileObj.fileName;
+        const fileUrl = `/projetoextensaofsg2/pdfs/${fileName}`;
+        const pdf = await pdfjsLib.getDocument(fileUrl).promise;
+        pdfLengths[fileName] = pdf.numPages;
+        pdf.destroy();
+    }
+
+    const solvedPages = solveRules(sectionFiles, pdfLengths);
+    await renderPreviewFromSolved(previewContainer, solvedPages);
+}
+
+
+
+
+
+
+
+
+function addDraftToSavedMarkers() {
+    const clone = JSON.parse(JSON.stringify(marcadorDraft)); // deep copy
+    savedMarkers.push(clone);
+    renderMarkersList();
+}
+
+function renderMarkersList() {
+    markersListContainer.innerHTML = '';
+    if (!savedMarkers.length) {
+        markersListContainer.innerHTML = '<div style="color:#666;font-size:13px">Nenhum marcador salvo.</div>';
+        return;
+    }
+    savedMarkers.forEach((m, idx) => {
+        const card = document.createElement('div');
+        card.style = `
+            border:1px solid #ddd;
+            padding:6px;
+            margin-bottom:6px;
+            border-radius:6px;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            background:#fafafa;
+        `;
+        const title = document.createElement('strong');
+        title.textContent = m.nome;
+        title.style.color = m.cor || '#000';
+
+        const btns = document.createElement('div');
+        btns.style.display='flex';
+        btns.style.gap='4px';
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Editar';
+        editBtn.onclick = () => loadMarkerForEdit(idx);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'Remover';
+        removeBtn.onclick = () => { savedMarkers.splice(idx,1); renderMarkersList(); };
+
+        const upBtn = document.createElement('button');
+        upBtn.textContent = '↑';
+        upBtn.onclick = () => {
+            if (idx===0) return;
+            [savedMarkers[idx-1], savedMarkers[idx]] = [savedMarkers[idx], savedMarkers[idx-1]];
+            renderMarkersList();
+        };
+
+        const downBtn = document.createElement('button');
+        downBtn.textContent = '↓';
+        downBtn.onclick = () => {
+            if (idx===savedMarkers.length-1) return;
+            [savedMarkers[idx+1], savedMarkers[idx]] = [savedMarkers[idx], savedMarkers[idx+1]];
+            renderMarkersList();
+        };
+
+        btns.append(upBtn, downBtn, editBtn, removeBtn);
+        card.append(title, btns);
+        markersListContainer.appendChild(card);
+    });
+}
+
+function loadMarkerForEdit(idx) {
+    const m = savedMarkers[idx];
+    if (!m) return;
+
+    marcadorDraft.nome = m.nome;
+    marcadorDraft.cor = m.cor;
+    marcadorDraft.paginas = JSON.parse(JSON.stringify(m.paginas));
+
+    document.getElementById('marcadorNome').value = m.nome;
+    document.getElementById('marcadorCor').value = m.cor || '#ff0000';
+
+    renderSectionWithSolverPreview('mobile');
+    renderSectionWithSolverPreview('desktop');
+}
+
+
+
+
+
+
+
+
+
 
 
 
