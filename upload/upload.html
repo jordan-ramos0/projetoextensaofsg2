@@ -841,10 +841,10 @@ document.getElementById('marcadorForm').addEventListener('submit', (e)=>{
 });
 
 
-
 function solveRules(sectionFiles, pdfLengths = {}, maxPages = 100) {
     const solved = [];
-    // sectionFiles = marcadorDraft.paginas[section] (array of {fileName, rules})
+    let order = 1; // global page order
+
     for (const fileObj of sectionFiles) {
         const { fileName, rules } = fileObj;
         const totalPages = pdfLengths[fileName] || maxPages;
@@ -875,12 +875,13 @@ function solveRules(sectionFiles, pdfLengths = {}, maxPages = 100) {
                 }
             }
 
-            // Append to solved preserving order
-            pages.forEach(p => solved.push({ fileName, page: p }));
+            // Append with global order
+            pages.forEach(p => solved.push({ order: order++, fileName, page: p }));
         }
     }
     return solved;
 }
+
 
 
 /* ------------------- RENDER DE MINIATURAS USANDO O SOLVER ------------------- */
@@ -902,11 +903,12 @@ async function renderPreviewFromSolved(container, solvedPages) {
             ctx.fillRect(0,0,canvas.width,canvas.height);
             await page.render({canvasContext:ctx, viewport}).promise;
 
-            // legenda
+            // legenda with global order
             const legenda = document.createElement('div');
             legenda.style.fontSize = '11px';
             legenda.style.color = '#333';
-            legenda.textContent = `${item.page}º - Pg.${item.page} de ${item.fileName}`;
+            legenda.textContent = `${item.order}º - Pg.${item.page} de ${item.fileName}`;
+
             const wrapper = document.createElement('div');
             wrapper.style.display='flex';
             wrapper.style.flexDirection='column';
@@ -918,6 +920,7 @@ async function renderPreviewFromSolved(container, solvedPages) {
         pdf.destroy();
     }
 }
+
 
 /* ------------------- FUNÇÃO DE RENDER DA SEÇÃO ------------------- */
 async function renderSectionWithSolverPreview(section){
