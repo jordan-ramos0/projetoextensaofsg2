@@ -646,6 +646,19 @@ function openComposer(section, fileIdx, editingIndex=null){
   const especificasDiv = document.createElement('div'); especificasDiv.className='hidden'; especificasDiv.style='margin-top:8px;';
   especificasDiv.innerHTML = `Páginas (vírgula): <input id="c_paginas" style="width:200px;margin-left:6px">`;
   composerBody.appendChild(especificasDiv);
+  // alternar visibilidade dos inputs conforme o radio escolhido
+baseWrap.querySelectorAll('input[name="baseChoice"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    intervaloDiv.classList.add('hidden');
+    especificasDiv.classList.add('hidden');
+
+    if (radio.value === 'intervalo') {
+      intervaloDiv.classList.remove('hidden');
+    } else if (radio.value === 'especificas') {
+      especificasDiv.classList.remove('hidden');
+    }
+  });
+});
 
   const excetoListDiv = document.createElement('div'); excetoListDiv.style='margin-top:10px;border-top:1px dashed #eee;padding-top:8px;';
   excetoListDiv.innerHTML = `<div style="font-size:13px;color:#666">Exceto (opcional). Adicione um item de exclusão:</div>
@@ -829,30 +842,46 @@ document.getElementById('marcadorForm').addEventListener('submit', (e)=>{
 
 
 
-function solveRules(sectionRules, pdfLengths, maxPages=100) {
+function solveRules(sectionFiles, pdfLengths = {}, maxPages = 100) {
     const solved = [];
-    for(const fileName of Object.keys(sectionRules)){
-        const rules = sectionRules[fileName];
+    // sectionFiles = marcadorDraft.paginas[section] (array of {fileName, rules})
+    for (const fileObj of sectionFiles) {
+        const { fileName, rules } = fileObj;
         const totalPages = pdfLengths[fileName] || maxPages;
-        for(const r of rules){
-            let pages = [];
-            if(r.base === 'todas') pages = Array.from({length: totalPages}, (_,i)=>i+1);
-            else if(r.base === 'intervalo') pages = Array.from({length: r.fim-r.inicio+1}, (_,i)=>r.inicio+i);
-            else if(r.base === 'especificas') pages = r.paginas.slice();
 
-            // aplica excetos
-            if(r.excetos) {
-                for(const ex of r.excetos){
-                    if(ex.tipo === 'intervalo') pages = pages.filter(p=>p<ex.inicio||p>ex.fim);
-                    else if(ex.tipo === 'especificas') pages = pages.filter(p=>!ex.paginas.includes(p));
+        for (const r of rules) {
+            let pages = [];
+
+            // Base pages
+            if (r.base === 'todas') {
+                pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+            } else if (r.base === 'intervalo') {
+                const start = Math.max(1, r.inicio);
+                const end = Math.min(r.fim, totalPages);
+                pages = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+            } else if (r.base === 'especificas') {
+                pages = (r.paginas || []).filter(p => p >= 1 && p <= totalPages);
+            }
+
+            // Apply excetos
+            if (Array.isArray(r.excetos)) {
+                for (const ex of r.excetos) {
+                    if (ex.tipo === 'intervalo') {
+                        pages = pages.filter(p => p < ex.inicio || p > ex.fim);
+                    } else if (ex.tipo === 'especificas') {
+                        const excPages = ex.paginas || [];
+                        pages = pages.filter(p => !excPages.includes(p));
+                    }
                 }
             }
-            // empilha no resultado final, preservando ordem
-            pages.forEach(p=>solved.push({fileName, page: p}));
+
+            // Append to solved preserving order
+            pages.forEach(p => solved.push({ fileName, page: p }));
         }
     }
     return solved;
 }
+
 
 /* ------------------- RENDER DE MINIATURAS USANDO O SOLVER ------------------- */
 async function renderPreviewFromSolved(container, solvedPages) {
