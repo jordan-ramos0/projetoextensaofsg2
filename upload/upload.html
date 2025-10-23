@@ -121,7 +121,7 @@ table button {
 
    
 <div class="conteudoPrincipal hidden">
-    <h3 style="display:block; text-align:center">Configuração de Índice</h3>
+    <h3 style="display:block; text-align:center">Configuração de Marcador</h3>
     <div class="card" style="margin-top:20px;">
       <div id="marcadorFormContainer">
         <form id="marcadorForm" style="display:flex; flex-direction:column; gap:10px;">
@@ -177,12 +177,10 @@ table button {
           <button type="submit" id="adicionarMarcadorBtn">Adicionar Marcador</button>
         </form>
       
-        <div id="marcadoresContainer" style="margin-top:20px;">
-          <!-- Marcadores adicionados aparecerão aqui -->
-        </div>
+        
       </div>
 
-
+      
 
        <!--
       <div style="display:flex; flex-direction:column; gap:10px;">
@@ -213,7 +211,12 @@ table button {
 
 </div>
 
-
+<h3 style="display:block; text-align:center">Marcadores Existentes</h3>
+      <div class="card" style="margin-top:20px;">
+        <div id="marcadoresContainer" style="margin-top:20px;">
+          <!-- Marcadores adicionados aparecerão aqui -->
+        </div>
+      </div>
 
   
 
@@ -849,8 +852,19 @@ document.getElementById('marcadorForm').addEventListener('submit', (e) => {
     marcadorDraft.nome = document.getElementById('marcadorNome').value.trim() || 'Marcador sem nome';
     marcadorDraft.cor = document.getElementById('marcadorCor').value;
     
-    addDraftToSavedMarkers();
 });
+
+
+document.getElementById('adicionarMarcadorBtn').onclick = () => {
+    // Garante que o draft tem nome
+    marcadorDraft.nome = document.getElementById('marcadorNome').value.trim() || 'Marcador sem nome';
+    marcadorDraft.cor = document.getElementById('marcadorCor').value;
+
+    addDraftToSavedMarkers();
+    alert('Marcador salvo!');
+};
+
+
 
 
 function solveRules(sectionFiles, pdfLengths = {}, maxPages = 100) {
