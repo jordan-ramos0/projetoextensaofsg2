@@ -529,23 +529,29 @@ function renderSection(section) {
     `;
 
     card.innerHTML = `
-      
-
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-left:35px;">
-        <!-- small move buttons top-left -->
-        <strong>${fileName}</strong>
-        <div style="display:flex;gap:6px;">
+      <div style="
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          margin-left:35px;
+          flex-wrap:wrap;
+      ">
+        <strong style="
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display:block;
+        ">${fileName}</strong>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
           <div style="display:flex;gap:2px; margin:1px">
-        <button data-action="moveFileUp" title="Subir" style="font-size:11px;">↑</button>
-        <button data-action="moveFileDown" title="Descer" style="font-size:11px;">↓</button>
-      </div>
-
+            <button data-action="moveFileUp" title="Subir" style="font-size:11px;">↑</button>
+            <button data-action="moveFileDown" title="Descer" style="font-size:11px;">↓</button>
+          </div>
           <button data-action="addRule">+ Regra</button>
           <button data-action="removeArquivo">Remover Arquivo</button>
-        
         </div>
       </div>
-
       <ul class="regrasLista" style="margin-top:8px;list-style:none;padding-left:0;"></ul>
     `;
 
@@ -590,7 +596,6 @@ function renderSection(section) {
     container.appendChild(card);
   });
 }
-
 
 /* Render textual de uma regra (para lista) */
 function renderRuleText(rule) {
@@ -923,27 +928,48 @@ async function renderPreviewFromSolved(container, solvedPages) {
 
 
 /* ------------------- FUNÇÃO DE RENDER DA SEÇÃO ------------------- */
-async function renderSectionWithSolverPreview(section){
-    renderSection(section); // render the list of files and rules
+async function renderPreviewFromSolved(container, solvedPages) {
+    container.innerHTML = '';
 
-    const previewContainer = section==='mobile' 
-        ? document.getElementById('mobilePreviewContainer')
-        : document.getElementById('desktopPreviewContainer');
+    // Responsive flex/grid wrapper
+    container.style.display = 'grid';
+    container.style.gridTemplateColumns = 'repeat(auto-fit, minmax(100px, 1fr))';
+    container.style.gap = '8px';
+    container.style.justifyItems = 'center';
 
-    // load actual PDF page counts
-    const sectionFiles = marcadorDraft.paginas[section] || [];
-    const pdfLengths = {};
+    for(const item of solvedPages){
+        const fileUrl = `/projetoextensaofsg2/pdfs/${item.fileName}`;
+        const loading = pdfjsLib.getDocument(fileUrl);
+        const pdf = await loading.promise;
 
-    for(const fileObj of sectionFiles){
-        const fileName = fileObj.fileName;
-        const fileUrl = `/projetoextensaofsg2/pdfs/${fileName}`;
-        const pdf = await pdfjsLib.getDocument(fileUrl).promise;
-        pdfLengths[fileName] = pdf.numPages;
+        if(item.page <= pdf.numPages){
+            const page = await pdf.getPage(item.page);
+            const viewport = page.getViewport({scale:0.15});
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+            await page.render({canvasContext:ctx, viewport}).promise;
+
+            // legenda
+            const legenda = document.createElement('div');
+            legenda.style.fontSize = '11px';
+            legenda.style.color = '#333';
+            legenda.style.textAlign = 'center';
+            legenda.textContent = `${item.order}º - Pg.${item.page} de ${item.fileName}`;
+
+            const wrapper = document.createElement('div');
+            wrapper.style.display='flex';
+            wrapper.style.flexDirection='column';
+            wrapper.style.alignItems='center';
+            wrapper.appendChild(canvas);
+            wrapper.appendChild(legenda);
+            container.appendChild(wrapper);
+        }
         pdf.destroy();
     }
-
-    const solvedPages = solveRules(sectionFiles, pdfLengths);
-    await renderPreviewFromSolved(previewContainer, solvedPages);
 }
 
 
