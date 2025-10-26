@@ -52,7 +52,7 @@ canvas.page-canvas{display:block;background:#fff;}
 <script>
 
 const reviewLi = document.createElement('li');
-reviewLi.textContent = 'Avalie-nos!';
+reviewLi.textContent = 'Clique aqui para nos avaliar!';
 reviewLi.tabIndex = 0;
 reviewLi.style.cssText = `
   position: absolute;
@@ -133,6 +133,7 @@ closeX.style.cssText = `
   user-select: none;
   z-index: 10;
 `;
+closeX.id = "closeEvalBut"
 card.appendChild(closeX);
 
 
@@ -171,7 +172,7 @@ stars.forEach((star, idx) => {
 reviewLi.addEventListener('click', () => reviewPopup.style.display = 'flex');
 
 // Close popup
-closeX.addEventListener('click', () => reviewPopup.style.display = 'none');
+document.getElementById('closeEvalBut').addEventListener('click', () => reviewPopup.style.display = 'none');
 document.getElementById('cancelBtn').addEventListener('click', () => reviewPopup.style.display = 'none');
 document.getElementById('sendBtn').addEventListener('click', () => {
   // Close popup
