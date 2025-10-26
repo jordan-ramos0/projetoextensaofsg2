@@ -8,7 +8,7 @@
 html,body{margin:0;padding:0;height:100%;width:100%;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;background:#fafafa;}
 header{position:fixed;top:0;left:0;right:0;height:60px;background:rgb(60,57,107);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 12px;z-index:1000;box-shadow:0 2px 5px rgba(0,0,0,.15);}
 #menuToggle{font-size:22px;line-height:1;color:#fff;cursor:pointer;user-select:none;display:block;}
-#hub{position:fixed;top:60px;left:0;width:220px;bottom:0;background:rgba(245,245,245,.98);overflow-y:auto;z-index:1600;transform:translateX(-200px);transition:transform .22s ease;box-shadow:2px 0 6px rgba(0,0,0,.12);}
+#hub{position:fixed;top:60px;left:0;width:230px;bottom:0;background:rgba(245,245,245,.98);overflow-y:auto;z-index:1600;transform:translateX(-200px);transition:transform .22s ease;box-shadow:2px 0 6px rgba(0,0,0,.12);}
 #hub.open{transform:translateX(0);}
 #hub ul{list-style:none;margin:0;padding:0;}
 #hub li{padding:12px 10px;cursor:pointer;border-bottom:1px solid #e6e6e6;}
@@ -18,7 +18,27 @@ canvas.page-canvas{display:block;background:#fff;}
 #zoomControls{position:fixed;right:18px;bottom:18px;z-index:1600;display:flex;flex-direction:column;gap:8px;}
 #zoomControls button{border:0;background:#39496b;color:#fff;padding:10px 12px;border-radius:8px;font-size:18px;cursor:pointer;touch-action:manipulation;}
 #zoomControls button:active{transform:scale(.98);}
-#tapStrip{position:fixed;top:60px;left:0;width:20px;height:calc(100vh - 60px);z-index:1700;}
+#tapStrip{position:fixed;top:60px;left:0;width:30px;height:calc(100vh - 60px);z-index:1700;}
+/* ADDED: bullet element styling */
+#hub li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#hub li .bullet {
+  width: 9px;
+  height: 9px;
+  border-radius: 35%;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+#hub li.active .bullet {
+  box-shadow: 0 0 0 2px rgba(0, 88, 170, 0.904);
+}
+
 </style>
 </head>
 <body>
@@ -28,6 +48,160 @@ canvas.page-canvas{display:block;background:#fff;}
 </header>
 
 <div id="hub" aria-hidden="true"><ul id="pdfList" aria-label="Lista de PDFs"></ul></div>
+
+<script>
+
+const reviewLi = document.createElement('li');
+reviewLi.textContent = 'Avalie-nos!';
+reviewLi.tabIndex = 0;
+reviewLi.style.cssText = `
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #FFD700;
+  color: #000;
+  padding: 40px 10px;
+  cursor: pointer;
+  text-align: center;
+  z-index: 2000;
+  box-shadow: 0 -2px 6px rgba(0,0,0,0.15);
+`;
+
+
+// Create the star bullet (same concept as other bullets)
+const starBullet = document.createElement('span');
+starBullet.className = 'bullet';
+starBullet.textContent = '★';
+starBullet.style.cssText = `
+  font-size: 20px;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+`;
+
+// Add star bullet before the text
+reviewLi.appendChild(starBullet, reviewLi.firstChild);
+
+
+hub.appendChild(reviewLi);
+
+// Popup overlay
+const reviewPopup = document.createElement('div');
+reviewPopup.style.cssText = `
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 3000;
+`;
+
+// Card inside popup
+const card = document.createElement('div');
+card.style.cssText = `
+  position: relative;
+  background: #fff;
+  padding: 20px;
+  padding-top: 50px;
+  border-radius: 10px;
+  width: 90vw;        
+  max-width: 400px;   /* cap on desktop */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+
+// Blue "X" at top-right
+const closeX = document.createElement('span');
+closeX.innerHTML = '✖';
+closeX.style.cssText = `
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 42px;
+  line-height: 0.8;
+  cursor: pointer;
+  color: #39496b;
+  user-select: none;
+  z-index: 10;
+`;
+card.appendChild(closeX);
+
+
+const starCount = 5; const starStyle = 'class="star" style="font-size:48px;color:#ccc;cursor:pointer;line-height:0.75;user-select:none;" ';
+
+const formHTML = `
+  <input type="text" placeholder="Seu nome" style="padding:6px;border-radius:4px;border:1px solid #ccc;width:100%;box-sizing:border-box;">
+  <textarea placeholder="Comentário (opcional)" style="resize:vertical"></textarea>
+  <div style="display:flex;gap:10px;margin-top:0px; justify-content:center;">
+    ${Array(starCount).fill(`<span ${starStyle}>★</span>`).join('')}
+  </div>
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+    <button id="cancelBtn" style="padding:8px 12px;border:none;border-radius:4px;background:#ccc;color:#000;cursor:pointer;">Cancelar</button>
+    <button id="sendBtn" style="padding:8px 12px;border:none;border-radius:4px;background:#39496b;color:#fff;cursor:pointer;">Enviar</button>
+  </div>
+`;
+card.innerHTML += formHTML;
+reviewPopup.appendChild(card);
+document.body.appendChild(reviewPopup);
+
+
+const stars = card.querySelectorAll('.star');
+let currentRating = 0;
+
+stars.forEach((star, idx) => {
+  star.dataset.value = idx + 1;
+  star.addEventListener('click', () => {
+    currentRating = idx + 1;
+    stars.forEach((s, i) => {
+      s.style.color = i < currentRating ? '#FFD700' : '#ccc';
+    });
+  });
+});
+
+// Show popup
+reviewLi.addEventListener('click', () => reviewPopup.style.display = 'flex');
+
+// Close popup
+closeX.addEventListener('click', () => reviewPopup.style.display = 'none');
+document.getElementById('cancelBtn').addEventListener('click', () => reviewPopup.style.display = 'none');
+document.getElementById('sendBtn').addEventListener('click', () => {
+  // Close popup
+  
+
+  // Reset stars/input
+  stars.forEach(s => s.style.color = '#ccc');
+  currentRating = 0;
+  card.querySelector('input').value = '';
+  card.querySelector('textarea').value = '';
+
+// Create toast
+(() => {
+  const t = document.createElement('div');
+  t.textContent = 'Avaliação enviada!';
+  Object.assign(t.style,{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'#39496b',color:'#fff',padding:'10px 16px',borderRadius:'8px',boxShadow:'0 2px 6px rgba(0,0,0,0.2)',opacity:'1',transition:'opacity 2s linear',zIndex:'4000',pointerEvents:'none',fontFamily:'sans-serif'});
+  document.body.appendChild(t);
+  void t.offsetWidth; // force reflow to trigger transition
+  t.style.opacity='0';
+  setTimeout(() => t.remove(),2000);
+})();
+setTimeout(() => reviewPopup.style.display = 'none', 1000);
+
+
+});
+  </script>
+  
+
+
+
 <div id="tapStrip"></div>
 <div id="content" aria-live="polite"></div>
 <div id="zoomControls" aria-hidden="false">
@@ -40,11 +214,12 @@ canvas.page-canvas{display:block;background:#fff;}
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js";
 
 const pdfIndexData = [
-{ title:"Página 1 - Saúde Geral", desktop:"pages/Etinerário.pdf", mobile:"pages/Etinerário2.pdf" },
-{ title:"Página 2 - Nutrição e Bem-Estar", desktop:"pages/2-desktop.pdf", mobile:"pages/2-mobile.pdf" },
-{ title:"Página 3 - Exercício e Movimento", desktop:"pages/3-desktop.pdf", mobile:"pages/3-mobile.pdf" },
-{ title:"Página 4 - Sono e Recuperação", desktop:"pages/4-desktop.pdf", mobile:"pages/4-mobile.pdf" }
+  { title:"teste marcador 1", color:"#6a9ae2", desktop:"pdfs/Etinerário.pdf", mobile:"pdfs/Etinerário2.pdf" },
+  { title:"teste marcador 2", color:"#5ec27f", desktop:"pages/2-desktop.pdf", mobile:"pages/2-mobile.pdf" },
+  { title:"teste marcador 2", color:"#f4b24d", desktop:"pages/3-desktop.pdf", mobile:"pages/3-mobile.pdf" },
+  { title:"teste marcador 2", color:"#e66565", desktop:"pages/4-desktop.pdf", mobile:"pages/4-mobile.pdf" }
 ];
+
 
 const body=document.body, hub=document.getElementById('hub'), pdfList=document.getElementById('pdfList');
 const content=document.getElementById('content'), menuToggle=document.getElementById('menuToggle');
@@ -59,6 +234,13 @@ pdfIndexData.forEach(entry=>{
   li.textContent=entry.title;
   li.tabIndex=0;
   
+    /* ADDED: create colored bullet dynamically */
+    const bullet=document.createElement('span');
+  bullet.className='bullet';
+  bullet.style.backgroundColor=entry.color || '#bbb';
+  li.appendChild(bullet);
+
+
   // Always select entry on click
   li.addEventListener('click',()=>{
     selectEntry(entry);
@@ -115,6 +297,12 @@ async function probeFirstPage(url){
 /* Select PDF entry */
 async function selectEntry(entry){
   currentEntry=entry;
+
+  // ADDED: visual active bullet
+  document.querySelectorAll('#hub li').forEach(li => li.classList.remove('active'));
+  const selectedLi = Array.from(pdfList.children).find(li => li.textContent === entry.title);
+  if(selectedLi) selectedLi.classList.add('active');
+
   if(currentPdfDoc){try{currentPdfDoc.destroy();}catch(e){} currentPdfDoc=null;}
   content.innerHTML=''; zoomFactor=1; content.style.overflowX='hidden';
   const innerW=getContentInnerWidth(), innerH=content.clientHeight;
@@ -133,6 +321,7 @@ async function selectEntry(entry){
   baseScale=(innerW-0.5)/chosen.probe.viewport.width;
   await renderPdfDocument(currentPdfDoc);
 }
+
 
 /* Render PDF pages */
 async function renderPdfDocument(pdfDoc){
